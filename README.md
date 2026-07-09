@@ -13,11 +13,18 @@ superficial (isla de calor) y la topografía?
 
 ## Capas y fuentes de datos
 
-| Capa | Fuente | Año / período | Resolución |
+**Capas vectoriales**
+
+| Capa | Fuente | Año / período | Tipo de geometría |
 |---|---|---|---|
-| Manzanas censales (población, hogares) | INE, Censo de Población y Vivienda | 2024 | Polígono censal |
+| Manzanas censales (población, hogares) | INE, Censo de Población y Vivienda | 2024 | Polígono |
 | Uso de suelo | CONAF | 2024 | Polígono |
 | Red vial | MOP | 2019 | Línea |
+
+**Capas raster**
+
+| Capa | Fuente | Año / período | Resolución |
+|---|---|---|---|
 | DEM (elevación) | OpenTopography (SRTM) | Misión 2000 | 30 m |
 | NDVI (línea base y reciente) | Sentinel-2 SR, quality mosaic + Cloud Score+ | jul2019-jul2021 y jul2025-jul2026 | 10 m |
 | Diferencia NDVI | Cálculo propio sobre los dos composites anteriores | 2020-2026 | 10 m |
