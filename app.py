@@ -699,6 +699,42 @@ else:
     st.info("Ajusta el filtro de población para incluir más manzanas y ver esta relación.")
 
 # ─────────────────────────────────────────────────────────────
+# Serie histórica NDVI y LST (2019-2026, promedio de toda el área)
+# ─────────────────────────────────────────────────────────────
+
+st.subheader("Evolución histórica de NDVI y temperatura superficial (2019-2026)")
+st.caption(
+    "Promedio anual para toda el área de estudio (no por manzana). Respaldo visual "
+    "a las correlaciones débiles a nivel de manzana individual: aunque ahí la relación "
+    "no es clara, la tendencia general del territorio puede mostrar pérdida de "
+    "vegetación o aumento de temperatura en el tiempo."
+)
+
+try:
+    serie_ndvi = pd.read_csv(DATA / "serie_ndvi_anual.csv")
+    serie_lst = pd.read_csv(DATA / "serie_lst_anual.csv")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        fig_serie_ndvi = px.line(
+            serie_ndvi, x="year", y="ndvi_mean", markers=True,
+            labels={"year": "Año", "ndvi_mean": "NDVI promedio"},
+            title="NDVI promedio anual (jul-jul)",
+        )
+        fig_serie_ndvi.update_traces(line_color="#1A9850")
+        st.plotly_chart(fig_serie_ndvi, use_container_width=True)
+    with col2:
+        fig_serie_lst = px.line(
+            serie_lst, x="year", y="lst_mean", markers=True,
+            labels={"year": "Año", "lst_mean": "Temperatura superficial (°C)"},
+            title="Temperatura superficial promedio anual (ene-dic)",
+        )
+        fig_serie_lst.update_traces(line_color="#d73027")
+        st.plotly_chart(fig_serie_lst, use_container_width=True)
+except FileNotFoundError:
+    st.info("Serie histórica aún no disponible (pendiente correr export en GEE y subir los CSV a data/).")
+
+# ─────────────────────────────────────────────────────────────
 # Tabla de atributos
 # ─────────────────────────────────────────────────────────────
 
