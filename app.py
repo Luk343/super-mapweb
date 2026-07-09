@@ -217,7 +217,7 @@ def raster_a_overlay(raster_path):
 
 @st.cache_data
 def load_vectors():
-    manzanas = gpd.read_file(DATA / "Manzanas-Entidades.shp").to_crs(4326)
+    manzanas = gpd.read_file(DATA / "Manzanas-Entidades.geojson").to_crs(4326)
     uso = gpd.read_file(DATA / "Uso_Valdivia_cortado_conaf.shp").to_crs(4326)
     vial = gpd.read_file(DATA / "redvial2019.shp").to_crs(4326)
     manzanas["n_per"] = pd.to_numeric(manzanas["n_per"], errors="coerce").fillna(0)
