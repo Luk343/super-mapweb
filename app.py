@@ -18,10 +18,16 @@ import plotly.express as px
 # ─────────────────────────────────────────────────────────────
 
 st.set_page_config(page_title="GeoVisualizador de Valdivia", layout="wide")
-st.title("🌎 GeoVisualizador de Valdivia — Territorio, Uso de Suelo y Vialidad")
+st.title("🌎 GeoVisualizador de Valdivia — Urbanización, Vegetación y Temperatura Superficial")
 st.write(
-    "Manzanas censales (Censo 2024), uso de suelo (CONAF), red vial (MOP) y "
-    "elevación de la comuna de Valdivia. Selecciona las capas en el panel lateral."
+    "**Pregunta territorial:** ¿cómo se relaciona la urbanización y la pérdida de "
+    "cobertura vegetal con la distribución de población en Valdivia, y qué rol juega "
+    "esto en la temperatura superficial (isla de calor) y la topografía?"
+)
+st.write(
+    "Capas base: manzanas censales (Censo 2024), uso de suelo (CONAF), red vial (MOP) "
+    "y elevación (DEM). Capas de cambio: NDVI 2019-2021 vs. 2025-2026 y su diferencia, "
+    "y temperatura superficial (Landsat). Selecciona las capas en el panel lateral."
 )
 
 DATA = Path("data")
@@ -717,7 +723,7 @@ with st.expander("📋 Fuentes y metadatos de las capas"):
     | Uso de suelo | CONAF, catastro de uso de suelo | 2024 | Polígono, escala catastro CONAF |
     | Red vial | MOP, red vial nacional | 2019 | Línea |
     | DEM (elevación) | OpenTopography (SRTM) | Misión 2000 | 30 m |
-    | NDVI 2020 / 2026 | Sentinel-2 SR (Copernicus), mediana anual jul-jul | jul2020-jul2021 y jul2025-jul2026 | 10 m |
+    | NDVI (línea base / reciente) | Sentinel-2 SR (Copernicus), quality mosaic con Cloud Score+ | jul2019-jul2021 (línea base) y jul2025-jul2026 (reciente) | 10 m |
     | Δ NDVI 2020→2026 | Diferencia de los dos composites anteriores | 2020-2026 | 10 m |
     | Temperatura superficial (LST) | Landsat 8/9 Collection 2 Level 2, banda térmica | ene2025-jul2026 | 30 m |
 
