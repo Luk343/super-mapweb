@@ -411,20 +411,46 @@ show_manzanas = st.sidebar.checkbox("Manzanas censales (población)", value=True
 show_uso = st.sidebar.checkbox("Uso de suelo (CONAF)", value=True)
 show_vial = st.sidebar.checkbox("Red vial (MOP)", value=False)
 
-st.sidebar.subheader("🛰️ Raster")
-show_dem = st.sidebar.checkbox("DEM (elevación, SRTM 30m)", value=False)
-show_ndvi_2020 = st.sidebar.checkbox("NDVI 2020", value=False)
-show_ndvi_2026 = st.sidebar.checkbox("NDVI 2026", value=False)
-show_ndvi_diff = st.sidebar.checkbox("Diferencia NDVI (2020→2026)", value=False)
-show_lst = st.sidebar.checkbox("Temperatura superficial (LST, Landsat)", value=False)
+# ─────────────────────────────────────────────────────────────
+# Raster: checkbox + slider de opacidad juntos. El slider solo se
+# muestra si la capa está activa, para no llenar el sidebar de
+# controles inútiles cuando la capa está apagada.
+# ─────────────────────────────────────────────────────────────
 
-st.sidebar.subheader("🔍 Filtro")
-pob_min, pob_max = int(manzanas["n_per"].min()), int(manzanas["n_per"].max())
-rango_pob = st.sidebar.slider("Población por manzana", pob_min, pob_max, (pob_min, pob_max))
-manzanas_filtradas = manzanas[(manzanas["n_per"] >= rango_pob[0]) & (manzanas["n_per"] <= rango_pob[1])]
+st.sidebar.subheader("🛰️ Raster")
+
+show_dem = st.sidebar.checkbox("DEM (elevación, SRTM 30m)", value=False)
+op_dem = st.sidebar.slider("Opacidad DEM", 0.0, 1.0, 0.80, 0.05, key="op_dem") if show_dem else 0.80
+
+show_ndvi_2020 = st.sidebar.checkbox("NDVI 2020", value=False)
+op_ndvi_2020 = st.sidebar.slider("Opacidad NDVI 2020", 0.0, 1.0, 0.80, 0.05, key="op_ndvi_2020") if show_ndvi_2020 else 0.80
+
+show_ndvi_2026 = st.sidebar.checkbox("NDVI 2026", value=False)
+op_ndvi_2026 = st.sidebar.slider("Opacidad NDVI 2026", 0.0, 1.0, 0.80, 0.05, key="op_ndvi_2026") if show_ndvi_2026 else 0.80
+
+show_ndvi_diff = st.sidebar.checkbox("Diferencia NDVI (2020→2026)", value=False)
+op_ndvi_diff = st.sidebar.slider("Opacidad Δ NDVI", 0.0, 1.0, 0.80, 0.05, key="op_ndvi_diff") if show_ndvi_diff else 0.80
+
+show_lst = st.sidebar.checkbox("Temperatura superficial (LST, Landsat)", value=False)
+op_lst = st.sidebar.slider("Opacidad LST", 0.0, 1.0, 0.80, 0.05, key="op_lst") if show_lst else 0.80
+
+# ─────────────────────────────────────────────────────────────
+# Capa para análisis: se define ANTES del filtro porque el filtro
+# ahora depende de esta selección (solo aparece si corresponde a
+# la capa de manzanas).
+# ─────────────────────────────────────────────────────────────
 
 st.sidebar.subheader("📊 Capa para análisis")
 capa_analisis = st.sidebar.selectbox("Selecciona capa", ["Manzanas censales", "Uso de suelo", "Red vial"])
+
+st.sidebar.subheader("🔍 Filtro")
+if show_manzanas or capa_analisis == "Manzanas censales":
+    pob_min, pob_max = int(manzanas["n_per"].min()), int(manzanas["n_per"].max())
+    rango_pob = st.sidebar.slider("Población por manzana", pob_min, pob_max, (pob_min, pob_max))
+    manzanas_filtradas = manzanas[(manzanas["n_per"] >= rango_pob[0]) & (manzanas["n_per"] <= rango_pob[1])]
+else:
+    st.sidebar.caption("El filtro de población aparece al activar la capa de manzanas o seleccionarla para análisis.")
+    manzanas_filtradas = manzanas
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Estadísticas")
@@ -463,7 +489,7 @@ if show_dem:
             img_b64, bounds, dem_min, dem_max = raster_a_overlay(DATA / "DEM_manzanas_Valdivia.tif")
         folium.raster_layers.ImageOverlay(
             image=f"data:image/png;base64,{img_b64}",
-            bounds=bounds, opacity=0.80, name="🛰 DEM (elevación)",
+            bounds=bounds, opacity=op_dem, name="🛰 DEM (elevación)",
         ).add_to(m)
         leyendas_html.append(leyenda_graduada_html(
             "Elevación", COLORMAP_DEM, dem_min, dem_max, unidad=" m", icono="🏔️", top=f"{offset_top}px"
@@ -482,7 +508,7 @@ if show_ndvi_2020:
             img_b64, bounds, v_lo, v_hi = raster_a_overlay_continuo(DATA / "NDVI_2020.tif", COLORMAP_NDVI)
         folium.raster_layers.ImageOverlay(
             image=f"data:image/png;base64,{img_b64}",
-            bounds=bounds, opacity=0.80, name="🌱 NDVI 2020",
+            bounds=bounds, opacity=op_ndvi_2020, name="🌱 NDVI 2020",
         ).add_to(m)
         leyendas_html.append(leyenda_graduada_html(
             "NDVI 2020", COLORMAP_NDVI, v_lo, v_hi, icono="🌱", top=f"{offset_top}px"
@@ -497,7 +523,7 @@ if show_ndvi_2026:
             img_b64, bounds, v_lo, v_hi = raster_a_overlay_continuo(DATA / "NDVI_2026.tif", COLORMAP_NDVI)
         folium.raster_layers.ImageOverlay(
             image=f"data:image/png;base64,{img_b64}",
-            bounds=bounds, opacity=0.80, name="🌱 NDVI 2026",
+            bounds=bounds, opacity=op_ndvi_2026, name="🌱 NDVI 2026",
         ).add_to(m)
         leyendas_html.append(leyenda_graduada_html(
             "NDVI 2026", COLORMAP_NDVI, v_lo, v_hi, icono="🌱", top=f"{offset_top}px"
@@ -514,7 +540,7 @@ if show_ndvi_diff:
             )
         folium.raster_layers.ImageOverlay(
             image=f"data:image/png;base64,{img_b64}",
-            bounds=bounds, opacity=0.80, name="🔥 Diferencia NDVI (2020→2026)",
+            bounds=bounds, opacity=op_ndvi_diff, name="🔥 Diferencia NDVI (2020→2026)",
         ).add_to(m)
         leyendas_html.append(leyenda_graduada_html(
             "Δ NDVI 2020→2026", COLORMAP_NDVI_DIFF, v_lo, v_hi, icono="🔥", top=f"{offset_top}px"
@@ -529,7 +555,7 @@ if show_lst:
             img_b64, bounds, v_lo, v_hi = raster_a_overlay_continuo(DATA / "LST_Valdivia_Landsat.tif", COLORMAP_LST)
         folium.raster_layers.ImageOverlay(
             image=f"data:image/png;base64,{img_b64}",
-            bounds=bounds, opacity=0.80, name="🌡️ Temperatura superficial (LST)",
+            bounds=bounds, opacity=op_lst, name="🌡️ Temperatura superficial (LST)",
         ).add_to(m)
         leyendas_html.append(leyenda_graduada_html(
             "LST (°C)", COLORMAP_LST, v_lo, v_hi, unidad=" °C", icono="🌡️", top=f"{offset_top}px"
