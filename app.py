@@ -599,172 +599,177 @@ folium.plugins.Fullscreen(position="topleft").add_to(m)
 folium.plugins.MiniMap(toggle_display=True).add_to(m)
 folium.LayerControl(collapsed=False).add_to(m)
 
-st_folium(m, width=1200, height=680)
-
 # ─────────────────────────────────────────────────────────────
-# Gráfico estadístico
+# Pestañas: Mapa / Análisis / Datos
 # ─────────────────────────────────────────────────────────────
 
-st.subheader("Superficie por categoría de uso de suelo")
-area_por_uso = (uso.groupby("USO")["SUPERF_HA"].sum().reset_index()
-                 .sort_values("SUPERF_HA", ascending=False))
-fig = px.bar(area_por_uso, x="USO", y="SUPERF_HA", color="USO",
-             color_discrete_map=color_por_nombre_uso,
-             labels={"SUPERF_HA": "Superficie (ha)", "USO": "Uso de suelo"})
-st.plotly_chart(fig, use_container_width=True)
+tab_mapa, tab_analisis, tab_datos = st.tabs(["🗺️ Mapa", "📊 Análisis", "📋 Datos y descarga"])
 
-# ─────────────────────────────────────────────────────────────
-# Análisis territorial: población vs. cercanía a área verde
-# ─────────────────────────────────────────────────────────────
+with tab_mapa:
+    st_folium(m, width=1200, height=680)
 
-st.subheader("¿La población se concentra lejos de las áreas verdes?")
-st.caption(
-    "Cada punto es una manzana censal: población total vs. distancia al bosque o "
-    "humedal más cercano. Si hay tendencia positiva, la urbanización más densa "
-    "ocurre justamente donde ya no queda cobertura vegetal cerca."
-)
+with tab_analisis:
+    st.subheader("Superficie por categoría de uso de suelo")
+    area_por_uso = (uso.groupby("USO")["SUPERF_HA"].sum().reset_index()
+                     .sort_values("SUPERF_HA", ascending=False))
+    fig = px.bar(area_por_uso, x="USO", y="SUPERF_HA", color="USO",
+                 color_discrete_map=color_por_nombre_uso,
+                 labels={"SUPERF_HA": "Superficie (ha)", "USO": "Uso de suelo"})
+    st.plotly_chart(fig, use_container_width=True)
 
-datos_corr = manzanas_filtradas[manzanas_filtradas["n_per"] > 0]
-if len(datos_corr) > 5:
-    corr = np.corrcoef(datos_corr["dist_verde_m"], datos_corr["n_per"])[0, 1]
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        st.metric("Correlación", f"{corr:.2f}")
-        st.caption("Cercano a 1: más lejos de zonas verdes = más población.\nCercano a 0: sin relación clara.")
-    with col2:
-        fig_corr = px.scatter(
-            datos_corr, x="dist_verde_m", y="n_per",
-            labels={"dist_verde_m": "Distancia a bosque/humedal (m)", "n_per": "Población de la manzana"},
-            opacity=0.6,
+    st.divider()
+    st.subheader("¿La población se concentra lejos de las áreas verdes?")
+    st.caption(
+        "Cada punto es una manzana censal: población total vs. distancia al bosque o "
+        "humedal más cercano. Si hay tendencia positiva, la urbanización más densa "
+        "ocurre justamente donde ya no queda cobertura vegetal cerca."
+    )
+    datos_corr = manzanas_filtradas[manzanas_filtradas["n_per"] > 0]
+    if len(datos_corr) > 5:
+        corr = np.corrcoef(datos_corr["dist_verde_m"], datos_corr["n_per"])[0, 1]
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.metric("Correlación", f"{corr:.2f}")
+            st.caption("Cercano a 1: más lejos de zonas verdes = más población.\nCercano a 0: sin relación clara.")
+        with col2:
+            fig_corr = px.scatter(
+                datos_corr, x="dist_verde_m", y="n_per",
+                labels={"dist_verde_m": "Distancia a bosque/humedal (m)", "n_per": "Población de la manzana"},
+                opacity=0.6,
+            )
+            st.plotly_chart(fig_corr, use_container_width=True)
+    else:
+        st.info("Ajusta el filtro de población para incluir más manzanas y ver esta relación.")
+
+    st.divider()
+    st.subheader("¿Las manzanas más lejos de áreas verdes están más calientes?")
+    st.caption(
+        "Temperatura superficial promedio (LST, Landsat 8/9, 30m) por manzana vs. "
+        "distancia al bosque o humedal más cercano. Respalda o descarta el efecto "
+        "de isla de calor urbana asociado a la pérdida de cobertura vegetal."
+    )
+    datos_lst = manzanas_filtradas.dropna(subset=["lst_mean"])
+    if len(datos_lst) > 5:
+        corr_lst = np.corrcoef(datos_lst["dist_verde_m"], datos_lst["lst_mean"])[0, 1]
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.metric("Correlación", f"{corr_lst:.2f}")
+            st.caption("Negativo: más lejos de zonas verdes = más frío (poco esperable).\nPositivo: más lejos = más calor (isla de calor).")
+        with col2:
+            fig_lst = px.scatter(
+                datos_lst, x="dist_verde_m", y="lst_mean",
+                labels={"dist_verde_m": "Distancia a bosque/humedal (m)", "lst_mean": "Temperatura superficial promedio (°C)"},
+                opacity=0.6, color="n_per",
+                color_continuous_scale="YlOrRd",
+            )
+            st.plotly_chart(fig_lst, use_container_width=True)
+    else:
+        st.info("No hay suficientes manzanas con dato de temperatura en el filtro actual.")
+
+    st.divider()
+    st.subheader("¿Las manzanas más pobladas perdieron más vegetación (2020→2026)?")
+    st.caption(
+        "Diferencia de NDVI promedio por manzana (Sentinel-2, 10m) vs. población. "
+        "Valores negativos de Δ NDVI indican pérdida de cobertura vegetal en el período."
+    )
+    datos_ndvi = manzanas_filtradas[(manzanas_filtradas["n_per"] > 0)].dropna(subset=["ndvi_diff_mean"])
+    if len(datos_ndvi) > 5:
+        corr_ndvi = np.corrcoef(datos_ndvi["n_per"], datos_ndvi["ndvi_diff_mean"])[0, 1]
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.metric("Correlación", f"{corr_ndvi:.2f}")
+            st.caption("Negativo: más población = mayor pérdida de vegetación.\nCercano a 0: sin relación clara.")
+        with col2:
+            fig_ndvi = px.scatter(
+                datos_ndvi, x="n_per", y="ndvi_diff_mean",
+                labels={"n_per": "Población de la manzana", "ndvi_diff_mean": "Δ NDVI promedio 2020→2026"},
+                opacity=0.6,
+            )
+            fig_ndvi.add_hline(y=0, line_dash="dash", line_color="gray")
+            st.plotly_chart(fig_ndvi, use_container_width=True)
+    else:
+        st.info("Ajusta el filtro de población para incluir más manzanas y ver esta relación.")
+
+    st.divider()
+    st.subheader("Evolución histórica de NDVI y temperatura superficial (2019-2026)")
+    st.caption(
+        "Promedio anual para toda el área de estudio (no por manzana). Respaldo visual "
+        "a las correlaciones débiles a nivel de manzana individual: aunque ahí la relación "
+        "no es clara, la tendencia general del territorio puede mostrar pérdida de "
+        "vegetación o aumento de temperatura en el tiempo."
+    )
+    try:
+        serie_ndvi = pd.read_csv(DATA / "serie_ndvi_anual.csv")
+        serie_lst = pd.read_csv(DATA / "serie_lst_anual.csv")
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_serie_ndvi = px.line(
+                serie_ndvi, x="year", y="ndvi_mean", markers=True,
+                labels={"year": "Año", "ndvi_mean": "NDVI promedio"},
+                title="NDVI promedio anual (jul-jul)",
+            )
+            fig_serie_ndvi.update_traces(line_color="#1A9850")
+            st.plotly_chart(fig_serie_ndvi, use_container_width=True)
+        with col2:
+            fig_serie_lst = px.line(
+                serie_lst, x="year", y="lst_mean", markers=True,
+                labels={"year": "Año", "lst_mean": "Temperatura superficial (°C)"},
+                title="Temperatura superficial promedio anual (ene-dic)",
+            )
+            fig_serie_lst.update_traces(line_color="#d73027")
+            st.plotly_chart(fig_serie_lst, use_container_width=True)
+    except FileNotFoundError:
+        st.info("Serie histórica aún no disponible (pendiente correr export en GEE y subir los CSV a data/).")
+
+with tab_datos:
+    st.subheader(f"Tabla de atributos — {capa_analisis}")
+
+    if capa_analisis == "Manzanas censales":
+        cols = ["COMUNA", "n_per", "n_hog", "n_mujeres", "n_hombres", "prom_per_hog", "ndvi_diff_mean", "lst_mean"]
+        tabla_activa = manzanas_filtradas[cols].copy()
+    elif capa_analisis == "Uso de suelo":
+        cols = ["USO", "SUBUSO", "COBERTURA", "SUPERF_HA"]
+        tabla_activa = uso[cols].copy()
+    else:
+        cols = ["Nom_Ruta", "Clase_Ruta", "Catego", "shape_leng"]
+        tabla_activa = vial[cols].copy()
+
+    st.dataframe(tabla_activa, use_container_width=True)
+
+    col_dl1, col_dl2 = st.columns(2)
+    with col_dl1:
+        csv_bytes = tabla_activa.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Descargar tabla (CSV)",
+            data=csv_bytes,
+            file_name=f"{capa_analisis.lower().replace(' ', '_')}.csv",
+            mime="text/csv",
         )
-        st.plotly_chart(fig_corr, use_container_width=True)
-else:
-    st.info("Ajusta el filtro de población para incluir más manzanas y ver esta relación.")
+    with col_dl2:
+        if capa_analisis == "Manzanas censales":
+            geojson_str = manzanas_filtradas[cols + ["geometry"]].to_json()
+            st.download_button(
+                "⬇️ Descargar geometría filtrada (GeoJSON)",
+                data=geojson_str,
+                file_name="manzanas_filtradas.geojson",
+                mime="application/geo+json",
+            )
 
-# ─────────────────────────────────────────────────────────────
-# Análisis territorial: temperatura superficial vs. cercanía a área verde
-# ─────────────────────────────────────────────────────────────
+    with st.expander("📋 Fuentes y metadatos de las capas"):
+        st.markdown("""
+        | Capa | Fuente | Año / período | Resolución |
+        |---|---|---|---|
+        | Manzanas censales | INE, Censo de Población y Vivienda | 2024 | Polígono censal |
+        | Uso de suelo | CONAF, catastro de uso de suelo | 2024 | Polígono, escala catastro CONAF |
+        | Red vial | MOP, red vial nacional | 2019 | Línea |
+        | DEM (elevación) | OpenTopography (SRTM) | Misión 2000 | 30 m |
+        | NDVI (línea base / reciente) | Sentinel-2 SR (Copernicus), quality mosaic con Cloud Score+ | jul2019-jul2021 (línea base) y jul2025-jul2026 (reciente) | 10 m |
+        | Δ NDVI 2020→2026 | Diferencia de los dos composites anteriores | 2020-2026 | 10 m |
+        | Temperatura superficial (LST) | Landsat 8/9 Collection 2 Level 2, banda térmica | ene2025-jul2026 | 30 m |
+        | Serie histórica NDVI/LST | Sentinel-2 y Landsat 8/9, promedio anual de toda el área | 2019-2026 | 30 m |
 
-st.subheader("¿Las manzanas más lejos de áreas verdes están más calientes?")
-st.caption(
-    "Temperatura superficial promedio (LST, Landsat 8/9, 30m) por manzana vs. "
-    "distancia al bosque o humedal más cercano. Respalda o descarta el efecto "
-    "de isla de calor urbana asociado a la pérdida de cobertura vegetal."
-)
-
-datos_lst = manzanas_filtradas.dropna(subset=["lst_mean"])
-if len(datos_lst) > 5:
-    corr_lst = np.corrcoef(datos_lst["dist_verde_m"], datos_lst["lst_mean"])[0, 1]
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        st.metric("Correlación", f"{corr_lst:.2f}")
-        st.caption("Negativo: más lejos de zonas verdes = más frío (poco esperable).\nPositivo: más lejos = más calor (isla de calor).")
-    with col2:
-        fig_lst = px.scatter(
-            datos_lst, x="dist_verde_m", y="lst_mean",
-            labels={"dist_verde_m": "Distancia a bosque/humedal (m)", "lst_mean": "Temperatura superficial promedio (°C)"},
-            opacity=0.6, color="n_per",
-            color_continuous_scale="YlOrRd",
-        )
-        st.plotly_chart(fig_lst, use_container_width=True)
-else:
-    st.info("No hay suficientes manzanas con dato de temperatura en el filtro actual.")
-
-# ─────────────────────────────────────────────────────────────
-# Análisis territorial: pérdida de vegetación vs. población
-# ─────────────────────────────────────────────────────────────
-
-st.subheader("¿Las manzanas más pobladas perdieron más vegetación (2020→2026)?")
-st.caption(
-    "Diferencia de NDVI promedio por manzana (Sentinel-2, 10m) vs. población. "
-    "Valores negativos de Δ NDVI indican pérdida de cobertura vegetal en el período."
-)
-
-datos_ndvi = manzanas_filtradas[(manzanas_filtradas["n_per"] > 0)].dropna(subset=["ndvi_diff_mean"])
-if len(datos_ndvi) > 5:
-    corr_ndvi = np.corrcoef(datos_ndvi["n_per"], datos_ndvi["ndvi_diff_mean"])[0, 1]
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        st.metric("Correlación", f"{corr_ndvi:.2f}")
-        st.caption("Negativo: más población = mayor pérdida de vegetación.\nCercano a 0: sin relación clara.")
-    with col2:
-        fig_ndvi = px.scatter(
-            datos_ndvi, x="n_per", y="ndvi_diff_mean",
-            labels={"n_per": "Población de la manzana", "ndvi_diff_mean": "Δ NDVI promedio 2020→2026"},
-            opacity=0.6,
-        )
-        fig_ndvi.add_hline(y=0, line_dash="dash", line_color="gray")
-        st.plotly_chart(fig_ndvi, use_container_width=True)
-else:
-    st.info("Ajusta el filtro de población para incluir más manzanas y ver esta relación.")
-
-# ─────────────────────────────────────────────────────────────
-# Serie histórica NDVI y LST (2019-2026, promedio de toda el área)
-# ─────────────────────────────────────────────────────────────
-
-st.subheader("Evolución histórica de NDVI y temperatura superficial (2019-2026)")
-st.caption(
-    "Promedio anual para toda el área de estudio (no por manzana). Respaldo visual "
-    "a las correlaciones débiles a nivel de manzana individual: aunque ahí la relación "
-    "no es clara, la tendencia general del territorio puede mostrar pérdida de "
-    "vegetación o aumento de temperatura en el tiempo."
-)
-
-try:
-    serie_ndvi = pd.read_csv(DATA / "serie_ndvi_anual.csv")
-    serie_lst = pd.read_csv(DATA / "serie_lst_anual.csv")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        fig_serie_ndvi = px.line(
-            serie_ndvi, x="year", y="ndvi_mean", markers=True,
-            labels={"year": "Año", "ndvi_mean": "NDVI promedio"},
-            title="NDVI promedio anual (jul-jul)",
-        )
-        fig_serie_ndvi.update_traces(line_color="#1A9850")
-        st.plotly_chart(fig_serie_ndvi, use_container_width=True)
-    with col2:
-        fig_serie_lst = px.line(
-            serie_lst, x="year", y="lst_mean", markers=True,
-            labels={"year": "Año", "lst_mean": "Temperatura superficial (°C)"},
-            title="Temperatura superficial promedio anual (ene-dic)",
-        )
-        fig_serie_lst.update_traces(line_color="#d73027")
-        st.plotly_chart(fig_serie_lst, use_container_width=True)
-except FileNotFoundError:
-    st.info("Serie histórica aún no disponible (pendiente correr export en GEE y subir los CSV a data/).")
-
-# ─────────────────────────────────────────────────────────────
-# Tabla de atributos
-# ─────────────────────────────────────────────────────────────
-
-st.subheader(f"Tabla de atributos — {capa_analisis}")
-if capa_analisis == "Manzanas censales":
-    cols = ["COMUNA", "n_per", "n_hog", "n_mujeres", "n_hombres", "prom_per_hog", "ndvi_diff_mean", "lst_mean"]
-    st.dataframe(manzanas_filtradas[cols], use_container_width=True)
-elif capa_analisis == "Uso de suelo":
-    st.dataframe(uso[["USO", "SUBUSO", "COBERTURA", "SUPERF_HA"]], use_container_width=True)
-else:
-    st.dataframe(vial[["Nom_Ruta", "Clase_Ruta", "Catego", "shape_leng"]], use_container_width=True)
-
-# ─────────────────────────────────────────────────────────────
-# Fuentes y metadatos
-# ─────────────────────────────────────────────────────────────
-
-with st.expander("📋 Fuentes y metadatos de las capas"):
-    st.markdown("""
-    | Capa | Fuente | Año / período | Resolución |
-    |---|---|---|---|
-    | Manzanas censales | INE, Censo de Población y Vivienda | 2024 | Polígono censal |
-    | Uso de suelo | CONAF, catastro de uso de suelo | 2024 | Polígono, escala catastro CONAF |
-    | Red vial | MOP, red vial nacional | 2019 | Línea |
-    | DEM (elevación) | OpenTopography (SRTM) | Misión 2000 | 30 m |
-    | NDVI (línea base / reciente) | Sentinel-2 SR (Copernicus), quality mosaic con Cloud Score+ | jul2019-jul2021 (línea base) y jul2025-jul2026 (reciente) | 10 m |
-    | Δ NDVI 2020→2026 | Diferencia de los dos composites anteriores | 2020-2026 | 10 m |
-    | Temperatura superficial (LST) | Landsat 8/9 Collection 2 Level 2, banda térmica | ene2025-jul2026 | 30 m |
-
-    Las capas provienen de años distintos porque corresponden a los productos oficiales
-    más recientes disponibles en cada fuente al momento del análisis. La red vial (2019)
-    y el DEM (SRTM, 2000) se usan como referencia estructural de base y no como
-    insumo temporal del análisis de cambio, que se apoya en NDVI y LST (2020-2026).
-    """)
+        Las capas provienen de años distintos porque corresponden a los productos oficiales
+        más recientes disponibles en cada fuente al momento del análisis. La red vial (2019)
+        y el DEM (SRTM, 2000) se usan como referencia estructural de base y no como
+        insumo temporal del análisis de cambio, que se apoya en NDVI y LST (2020-2026).
+        """)
